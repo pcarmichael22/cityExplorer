@@ -141,13 +141,25 @@ function Events(link, name, date, summary) {
     this.name = name;
     this.event_date = new Date(date).toDateString();
     this.summary = summary;
+    this.created_at = Date.now();
 }
 // set up an app.get for /eventbrite
 app.get('/events', (request, response) => {
     let eventData = request.query.data;
     // console.log('event data', eventData);
     client.query(`SELECT * FROM events WHERE search_query=$1`, [eventData.search_query]).then(sqlResult => {
+
+        let notTooOld = true;
         if (sqlResult.rowCount > 0) {
+            const age = sqlResult.rows[0].created_at;
+            const ageInSeconds = (Date.now() - age) / 1000;
+            if (ageInSeconds > 15) {
+                notTooOld = false;
+                client.query(`DELETE FROM events WHERE search_query=$1`, [localData.search_query]);
+            }
+        }
+
+        if (sqlResult.rowCount > 0 && notTooOld) {
             response.send(sqlResult.rows);
         } else {
 
@@ -189,6 +201,7 @@ function Movie(title, overview, average_votes, total_votes, image_url, popularit
     this.image_url = image_url;
     this.popularity = popularity;
     this.released_on = released_on;
+    this.created_at = Date.now();
 }
 
 // set up an app.get for /MOVIES
@@ -196,7 +209,19 @@ app.get('/movies', (request, response) => {
     let movieData = request.query.data;
     // console.log('event data', movieData);
     client.query(`SELECT * FROM movies WHERE search_query=$1`, [movieData.search_query]).then(sqlResult => {
+
+
+        let notTooOld = true;
         if (sqlResult.rowCount > 0) {
+            const age = sqlResult.rows[0].created_at;
+            const ageInSeconds = (Date.now() - age) / 1000;
+            if (ageInSeconds > 15) {
+                notTooOld = false;
+                client.query(`DELETE FROM movies WHERE search_query=$1`, [localData.search_query]);
+            }
+        }
+
+        if (sqlResult.rowCount > 0 && notTooOld) {
             response.send(sqlResult.rows);
         } else {
 
@@ -210,7 +235,7 @@ app.get('/movies', (request, response) => {
                 // console.log('stuff', responseFromSuper.body);
 
                 const eventBody = responseFromSuper.body.results;
-                console.log('SUPERAGENT RESPONSE', eventBody);
+                // console.log('SUPERAGENT RESPONSE', eventBody);
 
                 const movieEvent = eventBody.map(film => new Movie(film.title, film.overview, film.vote_average, film.vote_count, `${movieStartUrl}${film.backdrop_path}`, film.popularity, film.release_date));
 
@@ -230,6 +255,77 @@ app.get('/movies', (request, response) => {
         }
     })
 })
+
+
+
+
+// constructor function for YELP
+function Restaurant(name, image_url, price, rating, url) {
+    this.name = name;
+    this.image_url = image_url;
+    this.price = price;
+    this.rating = rating;
+    this.url = url;
+    this.created_at = Date.now();
+}
+
+
+// set up an app.get for /YELP
+app.get('/yelp', (request, response) => {
+    let yelpData = request.query.data;
+    // console.log(yelpData);
+    client.query(`SELECT * FROM yelp WHERE search_query=$1`, [yelpData.search_query]).then(sqlResult => {
+
+        let notTooOld = true;
+        if (sqlResult.rowCount > 0) {
+            const age = sqlResult.rows[0].created_at;
+            const ageInSeconds = (Date.now() - age) / 1000;
+            if (ageInSeconds > 15) {
+                notTooOld = false;
+                client.query(`DELETE FROM yelp WHERE search_query=$1`, [localData.search_query]);
+            }
+        }
+
+        if (sqlResult.rowCount > 0 && notTooOld) {
+            response.send(sqlResult.rows);
+        } else {
+
+            const yelpURLdata = `https://api.yelp.com/v3/businesses/search?latitude=${yelpData.latitude}&longitude=${yelpData.longitude}`
+
+            return superagent.get(yelpURLdata).set('Authorization', `Bearer ${process.env.YELP_API_KEY}`).then(responseFromSuper => {
+                console.log('RESPONSE FROM SUPER', responseFromSuper.body);
+
+                const yelpBody = responseFromSuper.body.businesses;
+                // console.log('SUPERAGENT RESPONSE', yelpBody);
+
+                const yelpRestaurant = yelpBody.map(spot => new Restaurant(spot.name, spot.image_url, spot.price, spot.rating, spot.url));
+
+                yelpRestaurant.forEach(location => {
+                    const sqlQueryInsert = `INSERT INTO yelp (search_query, name, image_url, price, rating, url) VALUES ($1,$2,$3,$4,$5,$6);`;
+                    const sqlValueArr = [yelpData.search_query, location.name, location.image_url, location.price, location.rating, location.url];
+                    client.query(sqlQueryInsert, sqlValueArr);
+                })
+
+                response.send(yelpRestaurant);
+            }).catch(error => {
+                response.status(500).send(error.message);
+                console.error(error);
+
+            })
+
+        }
+    })
+})
+
+
+// const yelpData =
+//     return superagent.get(yelpData)
+//         .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
+//         .then(result => {
+//                 const yelpReviews = result.body.businesses.map(yelp => {
+//                             let yelpItem = new YelpReview(yelp);
+//                             yelpItem.save(query.id);
+//                             return yelpItem;
 
 
 
