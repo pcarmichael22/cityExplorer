@@ -26,7 +26,21 @@ CREATE TABLE events (
     link VARCHAR(255),
     name VARCHAR(255),
     event_date VARCHAR(255),
-    summary VARCHAR(1000)
+    summary VARCHAR
+);
+
+DROP TABLE IF EXISTS movies;
+
+CREATE TABLE movies (
+    id SERIAL PRIMARY KEY,
+    search_query VARCHAR(255),
+    title VARCHAR(255),
+    overview VARCHAR,
+    average_votes VARCHAR(255),
+    total_votes VARCHAR(255),
+    image_url VARCHAR(255),
+    popularity VARCHAR(255),
+    released_on VARCHAR(255)
 );
 
 -- CREATE TABLE locations (

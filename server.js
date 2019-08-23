@@ -71,7 +71,7 @@ app.get('/location', (request, response) => {
 function Day(summary, time) {
     this.forecast = summary;
     this.time = new Date(time * 1000).toDateString();
-    this.created_at = new Date.now();
+    this.created_at = Date.now();
 }
 
 app.get('/weather', (request, response) => {
@@ -83,7 +83,7 @@ app.get('/weather', (request, response) => {
 
 
     let localData = request.query.data;
-    console.log('LOCAL DATA', localData)
+    // console.log('LOCAL DATA', localData)
 
     client.query(`SELECT * FROM weather WHERE search_query=$1`, [localData.search_query]).then(sqlResult => {
 
@@ -104,7 +104,7 @@ app.get('/weather', (request, response) => {
 
             const darkSkyUrl = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${localData.latitude},${localData.longitude}`;
 
-            console.log(darkSkyUrl);
+            // console.log(darkSkyUrl);
 
             superagent.get(darkSkyUrl).then(responseFromSuper => {
                 // console.log('Location Body', responseFromSuper.body);
@@ -113,11 +113,11 @@ app.get('/weather', (request, response) => {
 
                 const eightDays = weatherBody.daily.data;
                 // console.log('DAILY DATA', eightDays);
-                console.log('8 DAYS', eightDays);
+                // console.log('8 DAYS', eightDays);
                 const formattedDays = eightDays.map(day =>
                     new Day(day.summary, day.time));
 
-                console.log('formatted days', formattedDays);
+                // console.log('formatted days', formattedDays);
                 formattedDays.forEach(day => {
                     const sqlQueryInsert = `INSERT INTO weather (search_query, forecast, time, created_at) VALUES ($1,$2,$3,$4);`;
                     const sqlValueArr = [localData.search_query, day.forecast, day.time, day.created_at];
@@ -145,10 +145,10 @@ function Events(link, name, date, summary) {
 // set up an app.get for /eventbrite
 app.get('/events', (request, response) => {
     let eventData = request.query.data;
-    console.log('event data', eventData);
+    // console.log('event data', eventData);
     client.query(`SELECT * FROM events WHERE search_query=$1`, [eventData.search_query]).then(sqlResult => {
         if (sqlResult.rowCount > 0) {
-            response.send(sqlResult.rows[0]);
+            response.send(sqlResult.rows);
         } else {
 
             const eventUrlData =
@@ -169,6 +169,58 @@ app.get('/events', (request, response) => {
                 })
 
                 response.send(dailyEvents);
+            }).catch(error => {
+                response.status(500).send(error.message);
+                console.error(error);
+
+            })
+
+        }
+    })
+})
+
+
+// constructor function for MOVIEDB
+function Movie(title, overview, average_votes, total_votes, image_url, popularity, released_on) {
+    this.title = title;
+    this.overview = overview;
+    this.average_votes = average_votes;
+    this.total_votes = total_votes;
+    this.image_url = image_url;
+    this.popularity = popularity;
+    this.released_on = released_on;
+}
+
+// set up an app.get for /MOVIES
+app.get('/movies', (request, response) => {
+    let movieData = request.query.data;
+    // console.log('event data', movieData);
+    client.query(`SELECT * FROM movies WHERE search_query=$1`, [movieData.search_query]).then(sqlResult => {
+        if (sqlResult.rowCount > 0) {
+            response.send(sqlResult.rows);
+        } else {
+
+            const eventUrlData =
+                `https://api.themoviedb.org/3/search/movie?query=${movieData.search_query}&api_key=${process.env.MOVIE_API_KEY}`
+
+            // IMAGE PATH 
+            let movieStartUrl = 'https://image.tmdb.org/t/p/w500';
+
+            superagent.get(eventUrlData).then(responseFromSuper => {
+                // console.log('stuff', responseFromSuper.body);
+
+                const eventBody = responseFromSuper.body.results;
+                console.log('SUPERAGENT RESPONSE', eventBody);
+
+                const movieEvent = eventBody.map(film => new Movie(film.title, film.overview, film.vote_average, film.vote_count, `${movieStartUrl}${film.backdrop_path}`, film.popularity, film.release_date));
+
+                movieEvent.forEach(film => {
+                    const sqlQueryInsert = `INSERT INTO movies (search_query, title, overview, average_votes, total_votes, image_url, popularity, released_on) VALUES ($1,$2,$3,$4,$5,$6,$7,$8);`;
+                    const sqlValueArr = [movieData.search_query, film.title, film.overview, film.average_votes, film.total_votes, film.image_url, film.popularity, film.released_on];
+                    client.query(sqlQueryInsert, sqlValueArr);
+                })
+
+                response.send(movieEvent);
             }).catch(error => {
                 response.status(500).send(error.message);
                 console.error(error);
