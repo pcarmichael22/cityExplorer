@@ -14,7 +14,8 @@ CREATE TABLE weather (
     id SERIAL PRIMARY KEY,
     search_query VARCHAR(255),
     forecast VARCHAR(255),
-    time VARCHAR(255)
+    time VARCHAR(255),
+    created_at BIGINT
 );
 
 DROP TABLE IF EXISTS events;

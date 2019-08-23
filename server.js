@@ -71,16 +71,34 @@ app.get('/location', (request, response) => {
 function Day(summary, time) {
     this.forecast = summary;
     this.time = new Date(time * 1000).toDateString();
+    this.created_at = new Date.now();
 }
 
 app.get('/weather', (request, response) => {
     // console.log(request);
+    // does data exist
+    // if its still valid => give to front end
+    // is it too old? => get new data
+    // if not => get new data 
+
 
     let localData = request.query.data;
-    console.log('LOCAL DATA', localData);
+    console.log('LOCAL DATA', localData)
 
     client.query(`SELECT * FROM weather WHERE search_query=$1`, [localData.search_query]).then(sqlResult => {
+
+        let notTooOld = true;
         if (sqlResult.rowCount > 0) {
+            const age = sqlResult.rows[0].created_at;
+            const ageInSeconds = (Date.now() - age) / 1000;
+            if (ageInSeconds > 15) {
+                notTooOld = false;
+                client.query(`DELETE FROM weather WHERE search_query=$1`, [localData.search_query]);
+            }
+        }
+
+
+        if (sqlResult.rowCount > 0 && notTooOld) {
             response.send(sqlResult.rows[0]);
         } else {
 
@@ -101,8 +119,8 @@ app.get('/weather', (request, response) => {
 
                 console.log('formatted days', formattedDays);
                 formattedDays.forEach(day => {
-                    const sqlQueryInsert = `INSERT INTO weather (search_query, forecast, time) VALUES ($1,$2,$3);`;
-                    const sqlValueArr = [localData.search_query, day.forecast, day.time];
+                    const sqlQueryInsert = `INSERT INTO weather (search_query, forecast, time, created_at) VALUES ($1,$2,$3,$4);`;
+                    const sqlValueArr = [localData.search_query, day.forecast, day.time, day.created_at];
                     client.query(sqlQueryInsert, sqlValueArr);
                 })
                 response.send(formattedDays);
@@ -134,7 +152,7 @@ app.get('/events', (request, response) => {
         } else {
 
             const eventUrlData =
-                `https://www.eventbriteapi.com/v3/events/search/?sort_by=date&location.latitude=${eventData.latitude}&location.longitude=${eventData.longitude}&token=ZDDD2HU3AK5DLAZ6IYF5`
+                `https://www.eventbriteapi.com/v3/events/search/?sort_by=date&location.latitude=${eventData.latitude}&location.longitude=${eventData.longitude}&token=${process.env.EVENT_BRITE_API}`
 
 
             superagent.get(eventUrlData).then(responseFromSuper => {
