@@ -2,21 +2,19 @@
 
 const express = require('express');
 const cors = require('cors');
-//superagent talks to the internet over http
 const superagent = require('superagent');
 const pg = require('pg');
 require('dotenv').config()
-
 const app = express();
 app.use(cors());
 
-//postgres client
 const client = new pg.Client(process.env.DATABASE_URL);
 client.connect();
-// setup error logging
 client.on('error', (error) => console.error(error));
 
 const PORT = process.env.PORT;
+
+// ~~~~~~~~~~~~~~~~ CONSTRUCTORS ~~~~~~~~~~~~~~~~ \\
 
 function Location(query, format, lat, lng) {
     this.search_query = query;
@@ -25,7 +23,71 @@ function Location(query, format, lat, lng) {
     this.longitude = lng;
 }
 
-app.get('/location', (request, response) => {
+function Day(summary, time) {
+    this.forecast = summary;
+    this.time = new Date(time * 1000).toDateString();
+    this.created_at = Date.now();
+}
+
+function Events(link, name, date, summary) {
+    this.link = link;
+    this.name = name;
+    this.event_date = new Date(date).toDateString();
+    this.summary = summary;
+    this.created_at = Date.now();
+}
+
+function Movie(title, overview, average_votes, total_votes, image_url, popularity, released_on) {
+    this.title = title;
+    this.overview = overview;
+    this.average_votes = average_votes;
+    this.total_votes = total_votes;
+    this.image_url = image_url;
+    this.popularity = popularity;
+    this.released_on = released_on;
+    this.created_at = Date.now();
+}
+
+function Restaurant(name, image_url, price, rating, url) {
+    this.name = name;
+    this.image_url = image_url;
+    this.price = price;
+    this.rating = rating;
+    this.url = url;
+    this.created_at = Date.now();
+}
+
+function Trail(name, location, length, stars, star_votes, summary, trail_url, conditions, condition_date, condition_time) {
+    this.name = name;
+    this.location = location;
+    this.length = length;
+    this.stars = stars;
+    this.star_votes = star_votes;
+    this.summary = summary;
+    this.trail_url = trail_url;
+    this.conditions = conditions;
+    this.condition_date = condition_date;
+    this.condition_time = condition_time;
+    this.created_at = Date.now();
+}
+
+// ~~~~~~~~~~~~~~~~ ROUTES ~~~~~~~~~~~~~~~~ \\
+
+app.get('/location', getlocation);
+
+app.get('/weather', getweather);
+
+app.get('/events', getevents);
+
+app.get('/movies', getmovies);
+
+app.get('/yelp', getyelp);
+
+app.get('/trails', gettrails);
+
+// ~~~~~~~~~~~~~~~~ FUNCTIONS ~~~~~~~~~~~~~~~~ \\
+
+function getlocation(request, response) {
     const query = request.query.data; //seattle
     // console.log('LOCATION QUERY', query);
     client.query(`SELECT * FROM locations WHERE search_query=$1`, [query]).then(sqlResult => {
@@ -65,16 +127,9 @@ app.get('/location', (request, response) => {
         }
 
     })
-})
-
-
-function Day(summary, time) {
-    this.forecast = summary;
-    this.time = new Date(time * 1000).toDateString();
-    this.created_at = Date.now();
 }
 
-app.get('/weather', (request, response) => {
+function getweather(request, response) {
     // console.log(request);
     // does data exist
     // if its still valid => give to front end
@@ -133,18 +188,9 @@ app.get('/weather', (request, response) => {
 
     })
 
-})
-
-// constructor function for eventbrite
-function Events(link, name, date, summary) {
-    this.link = link;
-    this.name = name;
-    this.event_date = new Date(date).toDateString();
-    this.summary = summary;
-    this.created_at = Date.now();
 }
-// set up an app.get for /eventbrite
-app.get('/events', (request, response) => {
+
+function getevents(request, response) {
     let eventData = request.query.data;
     // console.log('event data', eventData);
     client.query(`SELECT * FROM events WHERE search_query=$1`, [eventData.search_query]).then(sqlResult => {
@@ -155,7 +201,7 @@ app.get('/events', (request, response) => {
             const ageInSeconds = (Date.now() - age) / 1000;
             if (ageInSeconds > 15) {
                 notTooOld = false;
-                client.query(`DELETE FROM events WHERE search_query=$1`, [localData.search_query]);
+                client.query(`DELETE FROM events WHERE search_query=$1`, [eventData.search_query]);
             }
         }
 
@@ -189,23 +235,9 @@ app.get('/events', (request, response) => {
 
         }
     })
-})
-
-
-// constructor function for MOVIEDB
-function Movie(title, overview, average_votes, total_votes, image_url, popularity, released_on) {
-    this.title = title;
-    this.overview = overview;
-    this.average_votes = average_votes;
-    this.total_votes = total_votes;
-    this.image_url = image_url;
-    this.popularity = popularity;
-    this.released_on = released_on;
-    this.created_at = Date.now();
 }
 
-// set up an app.get for /MOVIES
-app.get('/movies', (request, response) => {
+function getmovies(request, response) {
     let movieData = request.query.data;
     // console.log('event data', movieData);
     client.query(`SELECT * FROM movies WHERE search_query=$1`, [movieData.search_query]).then(sqlResult => {
@@ -217,7 +249,7 @@ app.get('/movies', (request, response) => {
             const ageInSeconds = (Date.now() - age) / 1000;
             if (ageInSeconds > 15) {
                 notTooOld = false;
-                client.query(`DELETE FROM movies WHERE search_query=$1`, [localData.search_query]);
+                client.query(`DELETE FROM movies WHERE search_query=$1`, [movieData.search_query]);
             }
         }
 
@@ -254,24 +286,9 @@ app.get('/movies', (request, response) => {
 
         }
     })
-})
-
-
-
-
-// constructor function for YELP
-function Restaurant(name, image_url, price, rating, url) {
-    this.name = name;
-    this.image_url = image_url;
-    this.price = price;
-    this.rating = rating;
-    this.url = url;
-    this.created_at = Date.now();
 }
 
-
-// set up an app.get for /YELP
-app.get('/yelp', (request, response) => {
+function getyelp(request, response) {
     let yelpData = request.query.data;
     // console.log(yelpData);
     client.query(`SELECT * FROM yelp WHERE search_query=$1`, [yelpData.search_query]).then(sqlResult => {
@@ -282,7 +299,7 @@ app.get('/yelp', (request, response) => {
             const ageInSeconds = (Date.now() - age) / 1000;
             if (ageInSeconds > 15) {
                 notTooOld = false;
-                client.query(`DELETE FROM yelp WHERE search_query=$1`, [localData.search_query]);
+                client.query(`DELETE FROM yelp WHERE search_query=$1`, [yelpData.search_query]);
             }
         }
 
@@ -293,7 +310,7 @@ app.get('/yelp', (request, response) => {
             const yelpURLdata = `https://api.yelp.com/v3/businesses/search?latitude=${yelpData.latitude}&longitude=${yelpData.longitude}`
 
             return superagent.get(yelpURLdata).set('Authorization', `Bearer ${process.env.YELP_API_KEY}`).then(responseFromSuper => {
-                console.log('RESPONSE FROM SUPER', responseFromSuper.body);
+                // console.log('RESPONSE FROM SUPER', responseFromSuper.body);
 
                 const yelpBody = responseFromSuper.body.businesses;
                 // console.log('SUPERAGENT RESPONSE', yelpBody);
@@ -315,18 +332,59 @@ app.get('/yelp', (request, response) => {
 
         }
     })
-})
+}
 
+function gettrails(request, response) {
+    let trailsData = request.query.data;
+    // console.log(trailsData);
+    client.query(`SELECT * FROM trails WHERE search_query=$1`, [trailsData.search_query]).then(sqlResult => {
 
-// const yelpData =
-//     return superagent.get(yelpData)
-//         .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
-//         .then(result => {
-//                 const yelpReviews = result.body.businesses.map(yelp => {
-//                             let yelpItem = new YelpReview(yelp);
-//                             yelpItem.save(query.id);
-//                             return yelpItem;
+        let notTooOld = true;
+        if (sqlResult.rowCount > 0) {
+            const age = sqlResult.rows[0].created_at;
+            const ageInSeconds = (Date.now() - age) / 1000;
+            if (ageInSeconds > 15) {
+                notTooOld = false;
+                client.query(`DELETE FROM trails WHERE search_query=$1`, [trailsData.search_query]);
+            }
+        }
 
+        if (sqlResult.rowCount > 0 && notTooOld) {
+            response.send(sqlResult.rows);
+        } else {
 
+            const trailsUrl = `https://www.hikingproject.com/data/get-trails?lat=${trailsData.latitude}&lon=${trailsData.longitude}&maxDistance=10&key=${process.env.TRAILS_API_KEY}`
+
+            return superagent.get(trailsUrl).then(responseFromSuper => {
+                // console.log('RESPONSE FROM SUPER', responseFromSuper.body);
+
+                const trailsBody = responseFromSuper.body.trails;
+                console.log('SUPERAGENT RESPONSE', yelpBody);
+                let trailTimeData = trailsBody.conditionDate.split(' ');
+                console.log('TRAIL BODY CONDITIONS', trailsBody[0].conditionDate);
+
+                const trailMap = trailsBody.map(trail => {
+                    let trailTimeData = trailsBody.conditionDate.split(' ');
+                    return new Trail(trail.name, trail.location, trail.length, trail.stars, trail.star_votes, trail.summary, trail.url, trail.conditionStatus, trailTimeData[0], trailTimeData[1])
+                });
+
+                trailMap.forEach(location => {
+                    const sqlQueryInsert = `INSERT INTO trails (search_query, name, location, length, stars, star_votes, summary, trail_url, conditions, condition_date, condition_time) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11);`;
+                    const sqlValueArr = [trailsData.search_query, location.name, location.location, location.length, location.stars, location.star_votes, location.summary, location.trail_url, location.conditions, location.condition_date, location.condition_time];
+                    client.query(sqlQueryInsert, sqlValueArr);
+                })
+
+                response.send(trailMap);
+            }).catch(error => {
+                response.status(500).send(error.message);
+                console.error(error);
+
+            })
+
+        }
+    })
+}
+
+// ~~~~~~~~~~~~~~~~ LISTENING ON ~~~~~~~~~~~~~~~~ \\
 
 app.listen(PORT, () => { console.log(`app is up on PORT ${PORT}`) })
